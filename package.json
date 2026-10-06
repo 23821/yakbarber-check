@@ -1,0 +1,46 @@
+{
+  "name": "yakbarber-check",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Find the outside APIs and AI models your code uses that are being retired: the date, the company's own words and what to use instead. Free, read-only, local.",
+  "keywords": [
+    "deprecation",
+    "api",
+    "retirement",
+    "sunset",
+    "llm",
+    "models",
+    "migration",
+    "breaking-changes",
+    "claude-code",
+    "skills",
+    "agents"
+  ],
+  "homepage": "https://yakbarber.com/radar/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/23821/yakbarber-check.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc",
+    "check": "node --experimental-strip-types src/bin.ts check"
+  },
+  "dependencies": {
+    "@vscode/ripgrep": "^1.18.0",
+    "commander": "^15.0.0",
+    "execa": "^10.0.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "esbuild": "0.28.2",
+    "typescript": "^7.0.2",
+    "yaml": "^2.9.1"
+  }
+}
