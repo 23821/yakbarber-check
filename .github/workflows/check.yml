@@ -1,0 +1,15 @@
+# A live example of the Action on this repository's own pull requests: it checks example/, a small sample project.
+# In your repository, replace `uses: ./` with `uses: 23821/yakbarber-check@v1` and drop `path` to check the whole
+# repository (see README.md, "Use it in CI").
+name: YakBarber check
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          path: example
