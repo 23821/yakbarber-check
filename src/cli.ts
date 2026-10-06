@@ -3,11 +3,11 @@
 // only network requests are the radar's public data and, with --repo, a read-only clone of a public repository.
 // `skill` (skill.ts) is the one command that writes: the coding-agent skill, into the folder it's given.
 // The founder's commands (scans, fixes, pull requests, outreach, campaigns) stay in index.ts and are never published.
-import { existsSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import { styleText } from "node:util";
 // Only the check, the read-only clone and the clean-up: the published bundle must not carry Claude, GitHub or Docker code.
-import { checkRepo, loadRadarData, renderCheckMarkdown } from "./core/check/index.ts";
+import { checkRepo, FAIL_ON, failureLine, loadRadarData, renderCheckAnnotations, renderCheckMarkdown, type FailOn } from "./core/check/index.ts";
 import { cleanUpOnInterrupt } from "./core/cleanup.ts";
 import { cloneRepo, githubCloneUrl, type Clone } from "./core/github/git.ts";
 import { Command } from "commander";
@@ -37,9 +37,12 @@ export function buildProgram(write: (text: string) => void = (t) => console.log(
     .option("--out <file>", "also write the report to this file")
     .option("--json", "print the report as JSON")
     .option("--today <YYYY-MM-DD>", "check as of this day")
-    .action(async (folder: string, opts: { repo?: string; radar: string; out?: string; json?: boolean; today?: string }) => {
+    .option("--fail-on <level>", "for CI: exit 1 on 'broken' (something switched off is still used) or 'soon' (also anything due in the next 90 days); 'none' never fails", "none")
+    .action(async (folder: string, opts: { repo?: string; radar: string; out?: string; json?: boolean; today?: string; failOn: string }) => {
       if (opts.repo && !/^[\w.-]+\/[\w.-]+$/.test(opts.repo)) throw new UserError(`Not a repository name: ${opts.repo} (expected owner/repo)`);
       if (opts.today && !/^\d{4}-\d{2}-\d{2}$/.test(opts.today)) throw new UserError(`--today must be YYYY-MM-DD, not ${opts.today}`);
+      if (!(FAIL_ON as readonly string[]).includes(opts.failOn)) throw new UserError(`--fail-on must be broken, soon or none, not ${opts.failOn}`);
+      const failOn = opts.failOn as FailOn;
       const radarSource = opts.radar.startsWith("https://") ? opts.radar : resolve(opts.radar);
       const radar = await loadRadarData(radarSource).catch((e: unknown) => {
         throw new UserError(`Couldn't read the Retirement Radar from ${opts.radar}: ${e instanceof Error ? e.message : String(e)}`);
@@ -60,7 +63,8 @@ export function buildProgram(write: (text: string) => void = (t) => console.log(
         const repository = opts.repo ?? (folder === "." ? "this folder" : folder);
         if (!opts.json) write(style("dim", `Checking ${repository} against ${radar.entries.length + radar.earlier.length} retirements from ${radar.providers.length} companies …\n`));
         const report = await checkRepo({ repoDir, radar, repository, today });
-        const text = opts.json ? JSON.stringify(report, null, 2) : renderCheckMarkdown(report);
+        const markdown = renderCheckMarkdown(report);
+        const text = opts.json ? JSON.stringify(report, null, 2) : markdown;
         if (opts.out) writeFileSync(resolve(opts.out), text);
         write(text);
         if (!opts.json) {
@@ -68,6 +72,18 @@ export function buildProgram(write: (text: string) => void = (t) => console.log(
           const toFix = report.items.filter((i) => i.section === "broken" || i.section === "soon" || i.section === "offered").length;
           if (toFix > 0 && !opts.repo) write(style("dim", `\nLet your coding agent fix ${toFix === 1 ? "it" : `these ${toFix}`}: npx yakbarber skill${folder === "." ? "" : ` ${folder}`} (then /yakbarber in Claude Code)`));
           write(style("dim", `\nKeep watching and get tested fix pull requests: ${APP_URL} (free for developers)`));
+        }
+        // In GitHub Actions: the lines as annotations in the pull request's Files tab, the report in the job summary.
+        // Both stay on the project's own runner; nothing is sent to YakBarber. (With --json the output is the JSON alone.)
+        if (process.env.GITHUB_ACTIONS) {
+          const prefix = clone ? null : relative(process.cwd(), repoDir).split("\\").join("/");
+          if (!opts.json) for (const line of renderCheckAnnotations(report, prefix)) write(line);
+          if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
+        }
+        const failure = failureLine(report, failOn);
+        if (failure) {
+          console.error(failure);
+          process.exitCode = 1;
         }
       } finally {
         await clone?.cleanup();

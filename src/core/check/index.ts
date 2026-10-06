@@ -22,3 +22,4 @@ export { loadRadarData, RadarDataSchema, sameName, type RadarAlternative, type R
 export { buildCheckReport, costChange, deadlineWords, renderCheckMarkdown, type CheckReport, type ReportItem, type Section } from "./report.ts";
 export { findUpgrades, type UpgradeItem } from "./upgrades.ts";
 export { findModelUses, type CatalogueModel, type ModelUse } from "./models.ts";
+export { FAIL_ON, failsCheck, failureLine, renderCheckAnnotations, type FailOn } from "./ci.ts";

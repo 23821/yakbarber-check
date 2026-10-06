@@ -19,10 +19,36 @@ npx yakbarber check path/to/project      # another folder
 npx yakbarber check --repo owner/repo    # a public GitHub repository (cloned read-only, deleted after)
 npx yakbarber check --json               # machine-readable report
 npx yakbarber check --out report.md      # also save the report
+npx yakbarber check --fail-on soon       # exit 1 when something is broken or due in 90 days (for CI, see below)
 npx yakbarber skill                      # let your coding agent fix what the check finds (see below)
 ```
 
 Needs Node.js 22 or newer, and `git` for `--repo`.
+
+## Use it in CI
+
+Add `.github/workflows/yakbarber.yml` to your repository, and every pull request gets checked on your own runner:
+
+```yaml
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: 23821/yakbarber-check@v1
+```
+
+The step fails when the code still calls something switched off, or something due in the next 90 days (`fail-on: soon`, the default; `broken` fails only on what is switched off, `none` only reports). Each line shows up in the pull request's Files tab, and the full report in the job summary. `path: packages/api` checks one folder. Same promise as on your computer: it runs on your runner, nothing from the code is sent anywhere, and the only request is the radar's public data.
+
+```yaml
+      - uses: 23821/yakbarber-check@v1
+        with:
+          fail-on: broken
+          path: .
+```
 
 ## The report
 

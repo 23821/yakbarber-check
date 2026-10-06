@@ -1,0 +1,39 @@
+# The YakBarber check as a GitHub Action: `uses: 23821/yakbarber-check@v1` runs `npx yakbarber check` on the
+# project's own runner. Free and read-only: nothing from the code is sent anywhere (the only request is the public
+# Retirement Radar data). Source: apps/cli/public/action.yml in the YakBarber repository, mirrored here.
+name: YakBarber check
+description: Finds the outside APIs and AI models this code uses that are being retired, with the date, the company's own words and what to use instead. Free, read-only, nothing leaves the runner.
+author: YakBarber
+branding:
+  icon: scissors
+  color: gray-dark
+inputs:
+  fail-on:
+    description: "When the step fails: broken (something switched off is still used), soon (also anything due in the next 90 days) or none (report only)"
+    required: false
+    default: soon
+  path:
+    description: The project's folder, relative to the repository
+    required: false
+    default: .
+runs:
+  using: composite
+  steps:
+    # The check needs Node.js 22. The runner's own Node is used when it is new enough; otherwise one is set up.
+    - id: node
+      shell: bash
+      run: |
+        if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+        fi
+    - if: steps.node.outputs.ok != 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - shell: bash
+      env:
+        CHECK_PATH: ${{ inputs.path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: npx --yes yakbarber@latest check "$CHECK_PATH" --fail-on "$FAIL_ON"
