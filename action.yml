@@ -2,7 +2,7 @@
 # project's own runner. Free and read-only: nothing from the code is sent anywhere (the only request is the public
 # Retirement Radar data). Source: apps/cli/public/action.yml in the YakBarber repository, mirrored here.
 name: YakBarber check
-description: Finds the outside APIs and AI models this code uses that are being retired, with the date, the company's own words and what to use instead.
+description: Finds the APIs and AI models your code uses that are being retired, with the date and the replacement. Free and read-only.
 author: YakBarber
 branding:
   icon: scissors
