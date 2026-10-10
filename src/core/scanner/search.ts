@@ -125,15 +125,12 @@ export async function searchText(cwd: string, patterns: string[], { wholeWord = 
     ...patterns.flatMap((p) => ["-e", p]),
     ".", // explicit path: without one, ripgrep reads stdin when it isn't a terminal and waits forever
   ];
-  const result = await execa(rgPath, args, { cwd, stdin: "ignore", reject: false, maxBuffer: 64 * 1024 * 1024 });
-  // ripgrep exits 0 when it found matches, 1 when it found none, 2 on errors.
-  if (result.exitCode !== 0 && result.exitCode !== 1) {
-    throw new Error(`ripgrep failed (exit ${result.exitCode}): ${String(result.stderr).slice(0, 500)}`);
-  }
-
+  // Read line by line, not into one buffer: a folder full of saved research gave more than 64 MB of matches, the last
+  // line was cut and the check crashed on it (`npx yakbarber check` in YakBarber's own folder, Oct 10).
+  const subprocess = execa(rgPath, args, { cwd, stdin: "ignore", reject: false, buffer: { stdout: false } });
   const hits: RgHit[] = [];
   const wanted = new Set(patterns);
-  for (const raw of String(result.stdout).split("\n")) {
+  for await (const raw of subprocess) {
     if (!raw) continue;
     const event = JSON.parse(raw);
     if (event.type !== "match") continue;
@@ -148,6 +145,11 @@ export async function searchText(cwd: string, patterns: string[], { wholeWord = 
       patterns: regex ? [] : matched.filter((m) => wanted.has(m)),
       matched,
     });
+  }
+  const result = await subprocess;
+  // ripgrep exits 0 when it found matches, 1 when it found none, 2 on errors.
+  if (result.exitCode !== 0 && result.exitCode !== 1) {
+    throw new Error(`ripgrep failed (exit ${result.exitCode}): ${String(result.stderr).slice(0, 500)}`);
   }
   return hits;
 }

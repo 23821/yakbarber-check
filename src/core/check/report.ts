@@ -166,21 +166,26 @@ function block(item: ReportItem, maxLines = 8): string {
   return out.join("\n");
 }
 
-const SECTIONS: { section: Section; title: string; note: string }[] = [
-  { section: "broken", title: "Broken now", note: "Switched off already: these calls fail today." },
-  { section: "soon", title: "Due in the next 90 days", note: "" },
-  { section: "later", title: "Due later", note: "" },
-  { section: "offered", title: "Offered in a menu or list", note: "Not called by default, but whoever picks one of these gets an error." },
+/** A date a company asked integrations to move by, already passed: still "soon" (urgent, also for CI), but never "due". */
+export const pastMoveBy = (i: Pick<ReportItem, "section" | "days">) => i.section === "soon" && i.days < 0;
+
+const SECTIONS: { title: string; note: string; pick: (i: ReportItem) => boolean }[] = [
+  { title: "Broken now", note: "Switched off already: these calls fail today.", pick: (i) => i.section === "broken" },
+  { title: "Past the date to move by", note: "The company asked integrations to move by these dates, which have passed. It hasn't said they stop working.", pick: pastMoveBy },
+  { title: "Due in the next 90 days", note: "", pick: (i) => i.section === "soon" && !pastMoveBy(i) },
+  { title: "Due later", note: "", pick: (i) => i.section === "later" },
+  { title: "Offered in a menu or list", note: "Not called by default, but whoever picks one of these gets an error.", pick: (i) => i.section === "offered" },
 ];
 
 export function renderCheckMarkdown(r: CheckReport): string {
   const count = (s: Section) => r.items.filter((i) => i.section === s).length;
+  const past = r.items.filter(pastMoveBy).length;
   const out = [
     `# What's retiring in ${r.repository}`,
     "",
     `Checked ${longDate(r.checkedOn)} against the Retirement Radar (${r.radarSize.retirements} retirements from ${r.radarSize.companies} companies, research of ${longDate(r.radarChecked)}; https://yakbarber.com/radar/). Every date and quote is from the company's own page.`,
     "",
-    `**${count("broken")} broken now · ${count("soon")} due in the next 90 days · ${count("later")} later · ${count("offered")} offered in a menu${r.upgrades.length ? ` · ${r.upgrades.length} newer option${r.upgrades.length === 1 ? "" : "s"}` : ""}**`,
+    `**${count("broken")} broken now · ${past ? `${past} past a move-by date · ` : ""}${count("soon") - past} due in the next 90 days · ${count("later")} later · ${count("offered")} offered in a menu${r.upgrades.length ? ` · ${r.upgrades.length} newer option${r.upgrades.length === 1 ? "" : "s"}` : ""}**`,
     "",
     "## Outside APIs this code uses",
     "",
@@ -188,7 +193,7 @@ export function renderCheckMarkdown(r: CheckReport): string {
     "",
   ];
   for (const s of SECTIONS) {
-    const items = r.items.filter((i) => i.section === s.section);
+    const items = r.items.filter(s.pick);
     if (!items.length) continue;
     out.push(`## ${s.title} (${items.length})`, "");
     if (s.note) out.push(s.note, "");

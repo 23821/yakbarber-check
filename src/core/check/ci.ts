@@ -2,7 +2,7 @@
 // retiring calls show up in the pull request's Files tab, and the report in the job summary. Everything here is
 // printed on the project's own runner; nothing from the code is sent anywhere.
 import { posix } from "node:path";
-import { deadlineWords, type CheckReport, type ReportItem } from "./report.ts";
+import { deadlineWords, pastMoveBy, type CheckReport, type ReportItem } from "./report.ts";
 
 export const FAIL_ON = ["broken", "soon", "none"] as const;
 export type FailOn = (typeof FAIL_ON)[number];
@@ -17,7 +17,13 @@ export function failsCheck(report: CheckReport, failOn: FailOn): boolean {
 export function failureLine(report: CheckReport, failOn: FailOn): string | null {
   if (!failsCheck(report, failOn)) return null;
   const count = (s: string) => report.items.filter((i) => i.section === s).length;
-  const parts = [count("broken") && `${count("broken")} broken now`, failOn === "soon" && count("soon") && `${count("soon")} due in the next 90 days`].filter(Boolean);
+  const past = report.items.filter(pastMoveBy).length;
+  const due = count("soon") - past;
+  const parts = [
+    count("broken") && `${count("broken")} broken now`,
+    failOn === "soon" && past && `${past} past a date to move by`,
+    failOn === "soon" && due && `${due} due in the next 90 days`,
+  ].filter(Boolean);
   return `Failing (--fail-on ${failOn}): ${parts.join(", ")}.`;
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "yakbarber-check",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Find the outside APIs and AI models your code uses that are being retired: the date, the company's own words and what to use instead. Free, read-only, local.",
   "keywords": [
